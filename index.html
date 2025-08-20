@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"="width=device-width, initial-scale=1.0">
+    <title>ระบบสะสมแต้ม - Integrated System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Kanit', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3);
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .points-display {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #8b4513;
+        }
+        
+        .transaction-earn {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+        }
+        
+        .transaction-redeem {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4facfe;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- System Selection -->
+        <div id="systemSelection" class="text-center mb-8">
+            <h1 class="text-5xl font-bold text-white mb-6">🎯 ระบบสะสมแต้ม</h1>
+            <p class="text-xl text-white opacity-90 mb-8">เลือกระบบที่ต้องการใช้งาน</p>
+            
+            <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Customer Portal -->
+                <div class="bg-white rounded-3xl card-shadow p-8 hover:transform hover:scale-105 transition-all duration-300 cursor-pointer" onclick="showCustomerPortal()">
+                    <div class="text-6xl mb-4">👤</div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">สำหรับลูกค้า</h2>
+                    <p class="text-gray-600 mb-6">ตรวจสอบแต้มสะสม และประวัติการใช้งาน</p>
+                    <div class="btn-primary text-white px-6 py-3 rounded-xl font-semibold inline-block">
+                        เข้าสู่ระบบลูกค้า
+                    </div>
+                </div>
+                
+                <!-- Admin Portal -->
+                <div class="bg-white rounded-3xl card-shadow p-8 hover:transform hover:scale-105 transition-all duration-300 cursor-pointer" onclick="showAdminLogin()">
+                    <div class="text-6xl mb-4">👨‍💼</div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">สำหรับผู้ดูแลระบบ</h2>
+                    <p class="text-gray-600 mb-6">จัดการลูกค้า ธุรกรรม และรายงาน</p>
+                    <div class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-xl font-semibold inline-block transition-colors duration-300">
+                        เข้าสู่ระบบผู้ดูแล
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customer Portal Header -->
+        <div id="customerHeader" class="text-center mb-8" style="display: none;">
+            <h1 class="text-5xl font-bold text-white mb-4">🎯 ตรวจสอบแต้มสะสม</h1>
+            <p class="text-xl text-white opacity-90">กรอกเบอร์โทรศัพท์เพื่อดูแต้มสะสมของคุณ</p>
+            <button onclick="backToSelection()" class="mt-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg transition-all duration-300">
+                ← กลับหน้าหลัก
+            </button>
+        </div>
+
+        <!-- Admin Login Header -->
+        <div id="adminLoginHeader" class="text-center mb-8" style="display: none;">
+            <h1 class="text-5xl font-bold text-white mb-4">🔐 เข้าสู่ระบบผู้ดูแล</h1>
+            <p class="text-xl text-white opacity-90">กรุณาใส่อีเมลเพื่อเข้าสู่ระบบจัดการ</p>
+            <button onclick="backToSelection()" class="mt-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg transition-all duration-300">
+                ← กลับหน้าหลัก
+            </button>
+        </div>
+
+        <!-- Admin Portal Header -->
+        <div id="adminHeader" style="display: none;">
+            <div class="bg-white rounded-3xl card-shadow overflow-hidden mb-8">
+                <div class="btn-primary text-white p-8 text-center">
+                    <h1 class="text-4xl font-bold mb-2">🎯 ระบบสะสมแต้ม - ผู้ดูแลระบบ</h1>
+                    <p class="text-lg opacity-90">ระบบจัดการคะแนนสะสมสำหรับลูกค้า</p>
+                    <div class="flex justify-center items-center gap-4 mt-4">
+                        <span class="text-sm opacity-80">ผู้ดูแล: <span id="adminEmail" class="font-semibold"></span></span>
+                        <button onclick="adminLogout()" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg transition-all duration-300">
+                            🚪 ออกจากระบบ
+                        </button>
+                        <button onclick="backToSelection()" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg transition-all duration-300">
+                            ← กลับหน้าหลัก
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Stats Cards -->
+                <div class="p-8">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="stats-card rounded-2xl p-6 text-center">
+                            <div class="text-3xl font-bold" id="totalCustomers">0</div>
+                            <div class="text-sm opacity-80">จำนวนลูกค้าทั้งหมด</div>
+                        </div>
+                        <div class="stats-card rounded-2xl p-6 text-center">
+                            <div class="text-3xl font-bold" id="totalPoints">0</div>
+                            <div class="text-sm opacity-80">แต้มทั้งหมดในระบบ</div>
+                        </div>
+                        <div class="stats-card rounded-2xl p-6 text-center">
+                            <div class="text-3xl font-bold" id="avgPoints">0</div>
+                            <div class="text-sm opacity-80">แต้มเฉลี่ยต่อคน</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customer Search Form -->
+        <div id="customerSearchForm" class="max-w-md mx-auto mb-8" style="display: none;">
+            <div class="bg-white rounded-3xl card-shadow p-8">
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">📱</div>
+                    <h2 class="text-2xl font-bold text-gray-800">ค้นหาข้อมูลของคุณ</h2>
+                </div>
+                
+                <form id="searchForm" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">เบอร์โทรศัพท์</label>
+                        <input 
+                            type="tel" 
+                            id="phoneInput" 
+                            required 
+                            placeholder="081-234-5678"
+                            class="w-full px-4 py-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                        >
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        id="searchBtn"
+                        class="w-full btn-primary text-white py-4 rounded-xl font-semibold text-lg hover:shadow-lg transition-all duration-300"
+                    >
+                        <span id="searchBtnText">🔍 ตรวจสอบแต้ม</span>
+                        <div id="searchBtnLoading" class="loading-spinner mx-auto" style="display: none;"></div>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Login Form -->
+        <div id="adminLoginForm" class="max-w-md mx-auto mb-8" style="display: none;">
+            <div class="bg-white rounded-3xl card-shadow p-8">
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">🔐</div>
+                    <h2 class="text-2xl font-bold text-gray-800">เข้าสู่ระบบผู้ดูแล</h2>
+                    <p class="text-gray-600 mt-2">กรุณาใส่อีเมลเพื่อเข้าสู่ระบบ</p>
+                </div>
+                
+                <form id="adminLoginFormSubmit" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">อีเมล</label>
+                        <input 
+                            type="email" 
+                            id="adminEmailInput" 
+                            required 
+                            placeholder="admin@example.com"
+                            class="w-full px-4 py-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                        >
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        id="adminLoginBtn"
+                        class="w-full bg-purple-500 hover:bg-purple-600 text-white py-4 rounded-xl font-semibold text-lg hover:shadow-lg transition-all duration-300"
+                    >
+                        <span id="adminLoginBtnText">🔑 เข้าสู่ระบบ</span>
+                        <div id="adminLoginBtnLoading" class="loading-spinner mx-auto" style="display: none;"></div>
+                    </button>
+                </form>
+                
+                <div class="mt-6 text-center">
+                    <button onclick="backToSelection()" class="text-gray-500 hover:text-gray-700 text-sm transition-colors duration-300">
+                        ← กลับหน้าหลัก
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Management System -->
+        <div id="adminSystem" style="display: none;">
+            <!-- Tabs -->
+            <div class="flex flex-wrap border-b-2 border-gray-200 mb-8 bg-white rounded-t-2xl p-4">
+                <button class="tab-btn px-6 py-3 font-semibold text-gray-600 border-b-3 border-transparent hover:text-blue-500 hover:bg-blue-50 transition-all duration-300 active" onclick="showTab('customers')">
+                    👥 จัดการลูกค้า
+                </button>
+                <button class="tab-btn px-6 py-3 font-semibold text-gray-600 border-b-3 border-transparent hover:text-blue-500 hover:bg-blue-50 transition-all duration-300" onclick="showTab('transactions')">
+                    💳 ธุรกรรม
+                </button>
+                <button class="tab-btn px-6 py-3 font-semibold text-gray-600 border-b-3 border-transparent hover:text-blue-500 hover:bg-blue-50 transition-all duration-300" onclick="showTab('reports')">
+                    📊 รายงาน
+                </button>
+            </div>
+            
+            <!-- Customer Management Tab -->
+            <div id="customers-tab" class="tab-content">
+                <div class="bg-gray-50 rounded-2xl p-8 mb-8">
+                    <h3 class="text-2xl font-bold mb-6 text-gray-800">➕ เพิ่มลูกค้าใหม่</h3>
+                    <form id="customerForm" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">ชื่อ-นามสกุล *</label>
+                                <input type="text" id="customerName" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">เบอร์โทรศัพท์ *</label>
+                                <input type="tel" id="customerPhone" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">อีเมล</label>
+                                <input type="email" id="customerEmail" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">แต้มเริ่มต้น</label>
+                                <input type="number" id="initialPoints" value="0" min="0" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300">
+                            ✅ เพิ่มลูกค้า
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Customer List -->
+                <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <h3 class="text-2xl font-bold text-gray-800">👥 รายชื่อลูกค้า</h3>
+                            <div class="flex gap-3">
+                                <input type="text" id="searchCustomer" placeholder="🔍 ค้นหาลูกค้า..." class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelImport(event)">
+                                <button onclick="document.getElementById('excelFileInput').click()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors duration-300">
+                                    📥 Import Excel
+                                </button>
+                                <button onclick="exportToGoogleSheets()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors duration-300">
+                                    📊 Export to Excel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">ชื่อ-นามสกุล</th>
+                                    <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">เบอร์โทร</th>
+                                    <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">อีเมล</th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">แต้มสะสม</th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">วันที่สมัคร</th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customerList" class="divide-y divide-gray-200">
+                                <!-- Customer data will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Transactions Tab -->
+            <div id="transactions-tab" class="tab-content" style="display: none;">
+                <div class="bg-gray-50 rounded-2xl p-8 mb-8">
+                    <h3 class="text-2xl font-bold mb-6 text-gray-800">💳 เพิ่ม/ใช้แต้ม</h3>
+                    <form id="transactionForm" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">เลือกลูกค้า *</label>
+                                <select id="transactionCustomer" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                                    <option value="">เลือกลูกค้า</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">ประเภทธุรกรรม *</label>
+                                <select id="transactionType" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                                    <option value="">เลือกประเภท</option>
+                                    <option value="earn">➕ เพิ่มแต้ม</option>
+                                    <option value="redeem">➖ ใช้แต้ม</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">จำนวนแต้ม *</label>
+                                <input type="number" id="transactionPoints" required min="1" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">หมายเหตุ</label>
+                            <textarea id="transactionNote" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" placeholder="ระบุรายละเอียดเพิ่มเติม..."></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300">
+                            💾 บันทึกธุรกรรม
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Transaction History -->
+                <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-2xl font-bold text-gray-800">📋 ประวัติธุรกรรม</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">วันที่</th>
+                                    <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">ลูกค้า</th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">ประเภท</th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">แต้ม</th>
+                                    <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">หมายเหตุ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionList" class="divide-y divide-gray-200">
+                                <!-- Transaction data will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Reports Tab -->
+            <div id="reports-tab" class="tab-content" style="display: none;">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Top Customers -->
+                    <div class="bg-white rounded-2xl card-shadow p-6">
+                        <h3 class="text-xl font-bold mb-4 text-gray-800">🏆 ลูกค้าแต้มสูงสุด</h3>
+                        <div id="topCustomers" class="space-y-3">
+                            <!-- Top customers will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activities -->
+                    <div class="bg-white rounded-2xl card-shadow p-6">
+                        <h3 class="text-xl font-bold mb-4 text-gray-800">⚡ กิจกรรมล่าสุด</h3>
+                        <div id="recentActivities" class="space-y-3">
+                            <!-- Recent activities will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customer Info Display -->
+        <div id="customerInfo" class="max-w-4xl mx-auto" style="display: none;">
+            <!-- Customer Details Card -->
+            <div class="bg-white rounded-3xl card-shadow overflow-hidden mb-8 fade-in">
+                <div class="btn-primary text-white p-8 text-center">
+                    <div class="text-6xl mb-4">👋</div>
+                    <h2 class="text-3xl font-bold mb-2">สวัสดี <span id="customerName"></span>!</h2>
+                    <p class="text-lg opacity-90">ข้อมูลแต้มสะสมของคุณ</p>
+                </div>
+                
+                <div class="p-8">
+                    <!-- Points Display -->
+                    <div class="text-center mb-8">
+                        <div class="points-display rounded-3xl p-8 pulse-animation">
+                            <div class="text-6xl font-bold mb-2" id="customerPoints">0</div>
+                            <div class="text-xl font-semibold">แต้มสะสม</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Customer Details -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-gray-50 rounded-2xl p-6">
+                            <div class="flex items-center mb-3">
+                                <span class="text-2xl mr-3">📞</span>
+                                <span class="font-semibold text-gray-700">เบอร์โทรศัพท์</span>
+                            </div>
+                            <div class="text-lg font-medium" id="customerPhone"></div>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-2xl p-6">
+                            <div class="flex items-center mb-3">
+                                <span class="text-2xl mr-3">📧</span>
+                                <span class="font-semibold text-gray-700">อีเมล</span>
+                            </div>
+                            <div class="text-lg font-medium" id="customerEmail">-</div>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-2xl p-6">
+                            <div class="flex items-center mb-3">
+                                <span class="text-2xl mr-3">📅</span>
+                                <span class="font-semibold text-gray-700">วันที่สมัครสมาชิก</span>
+                            </div>
+                            <div class="text-lg font-medium" id="customerJoinDate"></div>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-2xl p-6">
+                            <div class="flex items-center mb-3">
+                                <span class="text-2xl mr-3">🏆</span>
+                                <span class="font-semibold text-gray-700">อันดับ</span>
+                            </div>
+                            <div class="text-lg font-medium" id="customerRank">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction History -->
+            <div class="bg-white rounded-3xl card-shadow overflow-hidden fade-in">
+                <div class="p-6 border-b border-gray-200">
+                    <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                        <span class="text-3xl mr-3">📋</span>
+                        ประวัติการใช้แต้ม
+                    </h3>
+                </div>
+                
+                <div class="p-6">
+                    <div id="transactionHistory" class="space-y-4">
+                        <!-- Transaction items will be populated here -->
+                    </div>
+                    
+                    <div id="noTransactions" class="text-center py-12" style="display: none;">
+                        <div class="text-6xl mb-4">📝</div>
+                        <p class="text-xl text-gray-500">ยังไม่มีประวัติการใช้แต้ม</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="text-center mt-8">
+                <button 
+                    onclick="searchAnother()" 
+                    class="bg-gray-500 hover:bg-gray-600 text-white px-8 py-3 rounded-xl font-semibold mr-4 transition-colors duration-300"
+                >
+                    🔄 ค้นหาอีกครั้ง
+                </button>
+                <button 
+                    onclick="refreshData()" 
+                    class="btn-primary text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300"
+                >
+                    🔄 รีเฟรชข้อมูล
+                </button>
+            </div>
+        </div>
+
+        <!-- Not Found Message -->
+        <div id="notFound" class="max-w-md mx-auto text-center" style="display: none;">
+            <div class="bg-white rounded-3xl card-shadow p-8 fade-in">
+                <div class="text-6xl mb-4">😔</div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">ไม่พบข้อมูล</h3>
+                <p class="text-gray-600 mb-6">ไม่พบเบอร์โทรศัพท์นี้ในระบบ กรุณาตรวจสอบเบอร์โทรศัพท์อีกครั้ง</p>
+                <button 
+                    onclick="searchAnother()" 
+                    class="btn-primary text-white px-6 py-3 rounded-xl font-semibold"
+                >
+                    ลองอีกครั้ง
+                </button>
+            </div>
+        </div>
+
+        <!-- Edit Customer Modal -->
+        <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-3xl card-shadow p-8 max-w-md w-full mx-4">
+                <h3 class="text-2xl font-bold mb-6 text-gray-800">✏️ แก้ไขข้อมูลลูกค้า</h3>
+                <form id="editCustomerForm" class="space-y-4">
+                    <input type="hidden" id="editCustomerId">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">ชื่อ-นามสกุล *</label>
+                        <input type="text" id="editCustomerName" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">เบอร์โทรศัพท์ *</label>
+                        <input type="tel" id="editCustomerPhone" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">อีเมล</label>
+                        <input type="email" id="editCustomerEmail" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">แต้มสะสม</label>
+                        <input type="number" id="editCustomerPoints" min="0" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button type="submit" class="flex-1 btn-primary text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300">
+                            ✅ บันทึก
+                        </button>
+                        <button type="button" onclick="closeEditModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-xl font-semibold transition-colors duration-300">
+                            ❌ ยกเลิก
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Import Preview Modal -->
+        <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-3xl card-shadow p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <h3 class="text-2xl font-bold mb-6 text-gray-800">📥 ตรวจสอบข้อมูลก่อน Import</h3>
+                
+                <div class="mb-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <h4 class="font-semibold text-blue-800 mb-2">📋 รูปแบบไฟล์ Excel ที่ถูกต้อง:</h4>
+                        <div class="text-sm text-blue-700">
+                            <p><strong>คอลัมน์ที่ 1:</strong> ชื่อ-นามสกุล (บังคับ)</p>
+                            <p><strong>คอลัมน์ที่ 2:</strong> เบอร์โทรศัพท์ (บังคับ)</p>
+                            <p><strong>คอลัมน์ที่ 3:</strong> อีเมล (ไม่บังคับ)</p>
+                            <p><strong>คอลัมน์ที่ 4:</strong> แต้มเริ่มต้น (ไม่บังคับ, ค่าเริ่มต้น = 0)</p>
+                        </div>
+                    </div>
+                    
+                    <div id="importStats" class="grid grid-cols-3 gap-4 mb-4">
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-green-600" id="validCount">0</div>
+                            <div class="text-sm text-green-700">ข้อมูลถูกต้อง</div>
+                        </div>
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-red-600" id="errorCount">0</div>
+                            <div class="text-sm text-red-700">ข้อมูลผิดพลาด</div>
+                        </div>
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-yellow-600" id="duplicateCount">0</div>
+                            <div class="text-sm text-yellow-700">เบอร์ซ้ำในระบบ</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto mb-6">
+                    <table class="w-full border border-gray-200 rounded-lg">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">สถานะ</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">ชื่อ-นามสกุล</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">เบอร์โทร</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">อีเมล</th>
+                                <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">แต้ม</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="importPreviewTable" class="divide-y divide-gray-200">
+                            <!-- Preview data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="flex gap-3 pt-4">
+                    <button id="confirmImportBtn" onclick="confirmImport()" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300">
+                        <span id="confirmImportText">✅ Import ข้อมูล</span>
+                        <div id="confirmImportLoading" class="loading-spinner mx-auto" style="display: none;"></div>
+                    </button>
+                    <button type="button" onclick="closeImportModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-xl font-semibold transition-colors duration-300">
+                        ❌ ยกเลิก
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="fixed top-4 left-4 bg-gray-500 text-white px-3 py-1 rounded-lg text-sm z-50">
+        🔄 กำลังเชื่อมต่อ...
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyC3vNG3q2ullVGvVUKAcWXuAaYaWUrOX7A",
+            authDomain: "loyalty-point-e3acc.firebaseapp.com",
+            databaseURL: "https://loyalty-point-e3acc-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "loyalty-point-e3acc",
+            storageBucket: "loyalty-point-e3acc.firebasestorage.app",
+            messagingSenderId: "133851373092",
+            appId: "1:133851373092:web:d04bb08d6e8fc88ce742b1",
+            measurementId: "G-C8VFNHXXR4"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Monitor connection status
+        database.ref('.info/connected').on('value', function(snapshot) {
+            const connected = snapshot.val() === true;
+            showConnectionStatus(connected);
+        });
+
+        // Data arrays (will be populated from Firebase)
+        let customers = [];
+        let transactions = [];
+
+        // Sample data for initial setup (will be moved to Firebase)
+        const sampleCustomers = [
+            { 
+                id: 1, 
+                name: 'สมชาย ใจดี', 
+                phone: '081-234-5678', 
+                email: 'somchai@email.com', 
+                points: 1250, 
+                joinDate: new Date('2024-01-15').toISOString()
+            },
+            { 
+                id: 2, 
+                name: 'สมหญิง รักสวย', 
+                phone: '082-345-6789', 
+                email: 'somying@email.com', 
+                points: 890, 
+                joinDate: new Date('2024-02-20').toISOString()
+            },
+            { 
+                id: 3, 
+                name: 'วิชัย เก่งมาก', 
+                phone: '083-456-7890', 
+                email: 'wichai@email.com', 
+                points: 2100, 
+                joinDate: new Date('2024-01-10').toISOString()
+            },
+            { 
+                id: 4, 
+                name: 'มาลี สวยงาม', 
+                phone: '084-567-8901', 
+                email: 'malee@email.com', 
+                points: 750, 
+                joinDate: new Date('2024-03-05').toISOString()
+            },
+            { 
+                id: 5, 
+                name: 'สมศักดิ์ มั่งมี', 
+                phone: '085-678-9012', 
+                email: 'somsak@email.com', 
+                points: 1800, 
+                joinDate: new Date('2024-01-25').toISOString()
+            }
+        ];
+
+        const sampleTransactions = [
+            { id: 1, customerId: 1, customerName: 'สมชาย ใจดี', type: 'earn', points: 100, note: 'ซื้อสินค้า 1,000 บาท', date: new Date('2024-03-01').toISOString() },
+            { id: 2, customerId: 1, customerName: 'สมชาย ใจดี', type: 'redeem', points: 50, note: 'แลกของรางวัล', date: new Date('2024-03-05').toISOString() },
+            { id: 3, customerId: 1, customerName: 'สมชาย ใจดี', type: 'earn', points: 200, note: 'ซื้อสินค้า 2,000 บาท', date: new Date('2024-03-10').toISOString() },
+            { id: 4, customerId: 2, customerName: 'สมหญิง รักสวย', type: 'earn', points: 150, note: 'ซื้อสินค้า 1,500 บาท', date: new Date('2024-03-02').toISOString() },
+            { id: 5, customerId: 2, customerName: 'สมหญิง รักสวย', type: 'redeem', points: 100, note: 'แลกส่วนลด', date: new Date('2024-03-08').toISOString() },
+            { id: 6, customerId: 3, customerName: 'วิชัย เก่งมาก', type: 'earn', points: 300, note: 'ซื้อสินค้า 3,000 บาท', date: new Date('2024-03-03').toISOString() },
+            { id: 7, customerId: 3, customerName: 'วิชัย เก่งมาก', type: 'earn', points: 250, note: 'ซื้อสินค้า 2,500 บาท', date: new Date('2024-03-12').toISOString() }
+        ];
+
+        let currentCustomer = null;
+        let currentSystem = 'selection'; // 'selection', 'customer', 'admin'
+
+        // Firebase Database Functions
+        async function initializeFirebaseData() {
+            try {
+                showNotification('กำลังโหลดข้อมูลจาก Firebase...', 'info');
+                
+                // Check if data exists, if not, initialize with sample data
+                const customersSnapshot = await database.ref('customers').once('value');
+                const transactionsSnapshot = await database.ref('transactions').once('value');
+                
+                if (!customersSnapshot.exists()) {
+                    // Initialize with sample data
+                    await database.ref('customers').set(sampleCustomers);
+                    await database.ref('transactions').set(sampleTransactions);
+                    await database.ref('settings/nextCustomerId').set(6);
+                    await database.ref('settings/nextTransactionId').set(8);
+                    showNotification('เริ่มต้นข้อมูลใน Firebase เรียบร้อยแล้ว! 🎉', 'success');
+                }
+                
+                // Load data from Firebase
+                await loadDataFromFirebase();
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                showNotification('เกิดข้อผิดพลาดในการเชื่อมต่อ Firebase', 'error');
+                // Fallback to local data
+                customers = sampleCustomers.map(c => ({...c, joinDate: new Date(c.joinDate)}));
+                transactions = sampleTransactions.map(t => ({...t, date: new Date(t.date)}));
+            }
+        }
+
+        async function loadDataFromFirebase() {
+            try {
+                // Load customers
+                const customersSnapshot = await database.ref('customers').once('value');
+                const customersData = customersSnapshot.val() || [];
+                customers = customersData.map(customer => ({
+                    ...customer,
+                    joinDate: new Date(customer.joinDate)
+                }));
+
+                // Load transactions
+                const transactionsSnapshot = await database.ref('transactions').once('value');
+                const transactionsData = transactionsSnapshot.val() || [];
+                transactions = transactionsData.map(transaction => ({
+                    ...transaction,
+                    date: new Date(transaction.date)
+                }));
+
+                // Load settings
+                const settingsSnapshot = await database.ref('settings').once('value');
+                const settings = settingsSnapshot.val() || {};
+                nextCustomerId = settings.nextCustomerId || 6;
+                nextTransactionId = settings.nextTransactionId || 8;
+
+                showNotification('โหลดข้อมูลจาก Firebase เรียบร้อยแล้ว! ✅', 'success');
+                
+            } catch (error) {
+                console.error('Error loading data from Firebase:', error);
+                showNotification('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
+            }
+        }
+
+        async function saveCustomerToFirebase(customer) {
+            try {
+                await database.ref(`customers/${customer.id - 1}`).set({
+                    ...customer,
+                    joinDate: customer.joinDate.toISOString()
+                });
+                await database.ref('settings/nextCustomerId').set(nextCustomerId);
+                return true;
+            } catch (error) {
+                console.error('Error saving customer to Firebase:', error);
+                return false;
+            }
+        }
+
+        async function saveTransactionToFirebase(transaction) {
+            try {
+                await database.ref(`transactions/${transaction.id - 1}`).set({
+                    ...transaction,
+                    date: transaction.date.toISOString()
+                });
+                await database.ref('settings/nextTransactionId').set(nextTransactionId);
+                return true;
+            } catch (error) {
+                console.error('Error saving transaction to Firebase:', error);
+                return false;
+            }
+        }
+
+        async function updateCustomerInFirebase(customer) {
+            try {
+                const customerIndex = customers.findIndex(c => c.id === customer.id);
+                if (customerIndex !== -1) {
+                    await database.ref(`customers/${customerIndex}`).set({
+                        ...customer,
+                        joinDate: customer.joinDate.toISOString()
+                    });
+                }
+                return true;
+            } catch (error) {
+                console.error('Error updating customer in Firebase:', error);
+                return false;
+            }
+        }
+
+        async function deleteCustomerFromFirebase(customerId) {
+            try {
+                const customerIndex = customers.findIndex(c => c.id === customerId);
+                if (customerIndex !== -1) {
+                    await database.ref(`customers/${customerIndex}`).remove();
+                }
+                
+                // Remove related transactions
+                const customerTransactions = transactions.filter(t => t.customerId === customerId);
+                for (const transaction of customerTransactions) {
+                    const transactionIndex = transactions.findIndex(t => t.id === transaction.id);
+                    if (transactionIndex !== -1) {
+                        await database.ref(`transactions/${transactionIndex}`).remove();
+                    }
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error deleting customer from Firebase:', error);
+                return false;
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async function() {
+            await initializeFirebaseData();
+            
+            document.getElementById('searchForm').addEventListener('submit', handleSearch);
+            document.getElementById('phoneInput').addEventListener('input', formatPhoneNumber);
+            
+            // Setup admin form handlers
+            document.getElementById('customerForm').addEventListener('submit', handleAddCustomer);
+            document.getElementById('transactionForm').addEventListener('submit', handleAddTransaction);
+            document.getElementById('editCustomerForm').addEventListener('submit', handleEditCustomer);
+            document.getElementById('searchCustomer').addEventListener('input', handleAdminSearch);
+            document.getElementById('adminLoginFormSubmit').addEventListener('submit', handleAdminLogin);
+        });
+
+        // System navigation functions
+        function showCustomerPortal() {
+            currentSystem = 'customer';
+            document.getElementById('systemSelection').style.display = 'none';
+            document.getElementById('customerHeader').style.display = 'block';
+            document.getElementById('customerSearchForm').style.display = 'block';
+            document.getElementById('adminHeader').style.display = 'none';
+            document.getElementById('adminSystem').style.display = 'none';
+            
+            // Focus on phone input
+            setTimeout(() => {
+                document.getElementById('phoneInput').focus();
+            }, 100);
+        }
+
+        function showAdminLogin() {
+            currentSystem = 'adminLogin';
+            document.getElementById('systemSelection').style.display = 'none';
+            document.getElementById('customerHeader').style.display = 'none';
+            document.getElementById('customerSearchForm').style.display = 'none';
+            document.getElementById('adminLoginHeader').style.display = 'block';
+            document.getElementById('adminLoginForm').style.display = 'block';
+            document.getElementById('adminHeader').style.display = 'none';
+            document.getElementById('adminSystem').style.display = 'none';
+            
+            // Focus on email input
+            setTimeout(() => {
+                document.getElementById('adminEmailInput').focus();
+            }, 100);
+        }
+
+        function showAdminPortal() {
+            // Check if admin is logged in
+            if (!checkAdminSession()) {
+                showNotification('กรุณาเข้าสู่ระบบก่อนเข้าใช้งาน', 'error');
+                showAdminLogin();
+                return;
+            }
+            
+            currentSystem = 'admin';
+            document.getElementById('systemSelection').style.display = 'none';
+            document.getElementById('customerHeader').style.display = 'none';
+            document.getElementById('customerSearchForm').style.display = 'none';
+            document.getElementById('adminLoginHeader').style.display = 'none';
+            document.getElementById('adminLoginForm').style.display = 'none';
+            document.getElementById('adminHeader').style.display = 'block';
+            document.getElementById('adminSystem').style.display = 'block';
+            
+            // Initialize admin system
+            updateStats();
+            renderCustomers();
+            renderTransactions();
+            populateCustomerSelect();
+            updateReports();
+        }
+
+        function backToSelection() {
+            currentSystem = 'selection';
+            document.getElementById('systemSelection').style.display = 'block';
+            document.getElementById('customerHeader').style.display = 'none';
+            document.getElementById('customerSearchForm').style.display = 'none';
+            document.getElementById('customerInfo').style.display = 'none';
+            document.getElementById('notFound').style.display = 'none';
+            document.getElementById('adminLoginHeader').style.display = 'none';
+            document.getElementById('adminLoginForm').style.display = 'none';
+            document.getElementById('adminHeader').style.display = 'none';
+            document.getElementById('adminSystem').style.display = 'none';
+            
+            // Reset forms
+            document.getElementById('searchForm').reset();
+            if (document.getElementById('adminLoginFormSubmit')) {
+                document.getElementById('adminLoginFormSubmit').reset();
+            }
+            currentCustomer = null;
+        }
+
+        // Format phone number as user types
+        function formatPhoneNumber(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length >= 3 && value.length <= 6) {
+                value = value.replace(/(\d{3})(\d+)/, '$1-$2');
+            } else if (value.length > 6) {
+                value = value.replace(/(\d{3})(\d{3})(\d+)/, '$1-$2-$3');
+            }
+            e.target.value = value;
+        }
+
+        // Handle search form submission
+        async function handleSearch(e) {
+            e.preventDefault();
+            
+            const phoneInput = document.getElementById('phoneInput').value.trim();
+            if (!phoneInput) return;
+
+            // Show loading state
+            showLoading(true);
+            
+            // Hide previous results
+            document.getElementById('customerInfo').style.display = 'none';
+            document.getElementById('notFound').style.display = 'none';
+
+            // Simulate API call delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Search for customer
+            const customer = findCustomerByPhone(phoneInput);
+            
+            showLoading(false);
+
+            if (customer) {
+                displayCustomerInfo(customer);
+            } else {
+                showNotFound();
+            }
+        }
+
+        // Find customer by phone number
+        function findCustomerByPhone(phone) {
+            // Remove formatting for comparison
+            const cleanPhone = phone.replace(/\D/g, '');
+            
+            return customers.find(customer => {
+                const customerPhone = customer.phone.replace(/\D/g, '');
+                return customerPhone === cleanPhone;
+            });
+        }
+
+        // Display customer information
+        function displayCustomerInfo(customer) {
+            currentCustomer = customer;
+            
+            // Update customer details
+            document.getElementById('customerName').textContent = customer.name;
+            document.getElementById('customerPoints').textContent = customer.points.toLocaleString();
+            document.getElementById('customerPhone').textContent = customer.phone;
+            document.getElementById('customerEmail').textContent = customer.email || 'ไม่ได้ระบุ';
+            document.getElementById('customerJoinDate').textContent = customer.joinDate.toLocaleDateString('th-TH');
+            
+            // Calculate and display rank
+            const sortedCustomers = [...customers].sort((a, b) => b.points - a.points);
+            const rank = sortedCustomers.findIndex(c => c.id === customer.id) + 1;
+            const rankText = getRankText(rank);
+            document.getElementById('customerRank').textContent = `อันดับ ${rank} ${rankText}`;
+            
+            // Display transaction history
+            displayTransactionHistory(customer.id);
+            
+            // Show customer info
+            document.getElementById('customerInfo').style.display = 'block';
+            
+            // Scroll to results
+            document.getElementById('customerInfo').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }
+
+        // Get rank text with emoji
+        function getRankText(rank) {
+            if (rank === 1) return '🥇';
+            if (rank === 2) return '🥈';
+            if (rank === 3) return '🥉';
+            if (rank <= 5) return '🏅';
+            return '⭐';
+        }
+
+        // Display transaction history
+        function displayTransactionHistory(customerId) {
+            const customerTransactions = transactions
+                .filter(t => t.customerId === customerId)
+                .sort((a, b) => b.date - a.date);
+            
+            const historyContainer = document.getElementById('transactionHistory');
+            const noTransactionsDiv = document.getElementById('noTransactions');
+            
+            if (customerTransactions.length === 0) {
+                historyContainer.style.display = 'none';
+                noTransactionsDiv.style.display = 'block';
+                return;
+            }
+            
+            historyContainer.style.display = 'block';
+            noTransactionsDiv.style.display = 'none';
+            historyContainer.innerHTML = '';
+            
+            customerTransactions.forEach(transaction => {
+                const isEarn = transaction.type === 'earn';
+                const transactionDiv = document.createElement('div');
+                transactionDiv.className = `${isEarn ? 'transaction-earn' : 'transaction-redeem'} rounded-2xl p-6`;
+                
+                transactionDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <span class="text-3xl mr-4">${isEarn ? '➕' : '➖'}</span>
+                            <div>
+                                <div class="font-bold text-lg">
+                                    ${isEarn ? 'ได้รับแต้ม' : 'ใช้แต้ม'} ${transaction.points.toLocaleString()} แต้ม
+                                </div>
+                                <div class="text-sm opacity-80">${transaction.note || 'ไม่มีหมายเหตุ'}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-semibold">${transaction.date.toLocaleDateString('th-TH')}</div>
+                            <div class="text-sm opacity-80">${transaction.date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                    </div>
+                `;
+                
+                historyContainer.appendChild(transactionDiv);
+            });
+        }
+
+        // Show not found message
+        function showNotFound() {
+            document.getElementById('notFound').style.display = 'block';
+            document.getElementById('notFound').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+        }
+
+        // Show/hide loading state
+        function showLoading(show) {
+            const btn = document.getElementById('searchBtn');
+            const btnText = document.getElementById('searchBtnText');
+            const btnLoading = document.getElementById('searchBtnLoading');
+            
+            if (show) {
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'block';
+            } else {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            }
+        }
+
+        // Connection status indicator
+        function showConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            if (statusDiv) {
+                statusDiv.className = connected ? 
+                    'fixed top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-lg text-sm z-50' :
+                    'fixed top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-lg text-sm z-50';
+                statusDiv.textContent = connected ? '🟢 เชื่อมต่อ Firebase' : '🔴 ไม่เชื่อมต่อ Firebase';
+            }
+        }
+
+        // Admin login functions
+        async function handleAdminLogin(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('adminEmailInput').value.trim().toLowerCase();
+            const authorizedEmail = 'tanakitinsuan@gmail.com';
+            
+            // Show loading state
+            showAdminLoginLoading(true);
+            
+            // Simulate authentication delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            showAdminLoginLoading(false);
+            
+            if (email === authorizedEmail) {
+                // Store admin session
+                sessionStorage.setItem('adminEmail', email);
+                document.getElementById('adminEmail').textContent = email;
+                
+                showNotification('เข้าสู่ระบบผู้ดูแลเรียบร้อยแล้ว! 🎉', 'success');
+                
+                // Redirect to admin portal
+                setTimeout(() => {
+                    showAdminPortal();
+                }, 1000);
+            } else {
+                showNotification('อีเมลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง', 'error');
+                document.getElementById('adminEmailInput').focus();
+            }
+        }
+
+        function showAdminLoginLoading(show) {
+            const btn = document.getElementById('adminLoginBtn');
+            const btnText = document.getElementById('adminLoginBtnText');
+            const btnLoading = document.getElementById('adminLoginBtnLoading');
+            
+            if (show) {
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'block';
+            } else {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            }
+        }
+
+        function adminLogout() {
+            if (confirm('คุณต้องการออกจากระบบผู้ดูแลหรือไม่?')) {
+                sessionStorage.removeItem('adminEmail');
+                showNotification('ออกจากระบบเรียบร้อยแล้ว! 👋', 'success');
+                backToSelection();
+            }
+        }
+
+        // Check if admin is already logged in
+        function checkAdminSession() {
+            const adminEmail = sessionStorage.getItem('adminEmail');
+            if (adminEmail) {
+                document.getElementById('adminEmail').textContent = adminEmail;
+                return true;
+            }
+            return false;
+        }
+
+        // Admin system functions
+        async function handleAddCustomer(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('customerName').value;
+            const phone = document.getElementById('customerPhone').value;
+            const email = document.getElementById('customerEmail').value;
+            const points = parseInt(document.getElementById('initialPoints').value) || 0;
+            
+            // Check if phone number already exists
+            const existingCustomer = customers.find(c => c.phone === phone);
+            if (existingCustomer) {
+                showNotification('เบอร์โทรศัพท์นี้มีอยู่ในระบบแล้ว', 'error');
+                return;
+            }
+            
+            const newCustomer = {
+                id: nextCustomerId++,
+                name,
+                phone,
+                email,
+                points,
+                joinDate: new Date()
+            };
+            
+            // Save to Firebase
+            const saved = await saveCustomerToFirebase(newCustomer);
+            if (saved) {
+                customers.push(newCustomer);
+                
+                // Reset form
+                document.getElementById('customerForm').reset();
+                document.getElementById('initialPoints').value = '0';
+                
+                updateStats();
+                renderCustomers();
+                populateCustomerSelect();
+                updateReports();
+                
+                showNotification('เพิ่มลูกค้าเรียบร้อยแล้ว! 🎉', 'success');
+            } else {
+                nextCustomerId--; // Rollback ID
+                showNotification('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+            }
+        }
+
+        async function handleAddTransaction(e) {
+            e.preventDefault();
+            
+            const customerId = parseInt(document.getElementById('transactionCustomer').value);
+            const type = document.getElementById('transactionType').value;
+            const points = parseInt(document.getElementById('transactionPoints').value);
+            const note = document.getElementById('transactionNote').value;
+            
+            const customer = customers.find(c => c.id === customerId);
+            if (!customer) {
+                showNotification('ไม่พบข้อมูลลูกค้า', 'error');
+                return;
+            }
+            
+            // Check if customer has enough points for redemption
+            if (type === 'redeem' && customer.points < points) {
+                showNotification('แต้มไม่เพียงพอสำหรับการใช้งาน', 'error');
+                return;
+            }
+            
+            // Update customer points
+            const oldPoints = customer.points;
+            if (type === 'earn') {
+                customer.points += points;
+            } else {
+                customer.points -= points;
+            }
+            
+            // Add transaction
+            const newTransaction = {
+                id: nextTransactionId++,
+                customerId,
+                customerName: customer.name,
+                type,
+                points,
+                note,
+                date: new Date()
+            };
+            
+            // Save to Firebase
+            const transactionSaved = await saveTransactionToFirebase(newTransaction);
+            const customerUpdated = await updateCustomerInFirebase(customer);
+            
+            if (transactionSaved && customerUpdated) {
+                transactions.unshift(newTransaction);
+                
+                // Reset form
+                document.getElementById('transactionForm').reset();
+                
+                updateStats();
+                renderCustomers();
+                renderTransactions();
+                populateCustomerSelect();
+                updateReports();
+                
+                const typeText = type === 'earn' ? 'เพิ่มแต้ม' : 'ใช้แต้ม';
+                showNotification(`${typeText} ${points} แต้มให้ ${customer.name} เรียบร้อยแล้ว! 🎉`, 'success');
+            } else {
+                // Rollback changes
+                customer.points = oldPoints;
+                nextTransactionId--;
+                showNotification('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+            }
+        }
+
+        async function handleEditCustomer(e) {
+            e.preventDefault();
+            
+            const id = parseInt(document.getElementById('editCustomerId').value);
+            const name = document.getElementById('editCustomerName').value;
+            const phone = document.getElementById('editCustomerPhone').value;
+            const email = document.getElementById('editCustomerEmail').value;
+            const points = parseInt(document.getElementById('editCustomerPoints').value);
+            
+            const customer = customers.find(c => c.id === id);
+            if (customer) {
+                // Check if phone number already exists (excluding current customer)
+                const existingCustomer = customers.find(c => c.phone === phone && c.id !== id);
+                if (existingCustomer) {
+                    showNotification('เบอร์โทรศัพท์นี้มีอยู่ในระบบแล้ว', 'error');
+                    return;
+                }
+                
+                const oldData = { ...customer };
+                customer.name = name;
+                customer.phone = phone;
+                customer.email = email;
+                customer.points = points;
+                
+                // Update in Firebase
+                const updated = await updateCustomerInFirebase(customer);
+                if (updated) {
+                    updateStats();
+                    renderCustomers();
+                    populateCustomerSelect();
+                    updateReports();
+                    
+                    closeEditModal();
+                    showNotification('แก้ไขข้อมูลลูกค้าเรียบร้อยแล้ว! ✅', 'success');
+                } else {
+                    // Rollback changes
+                    Object.assign(customer, oldData);
+                    showNotification('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+                }
+            }
+        }
+
+        function handleAdminSearch(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filteredCustomers = customers.filter(customer => 
+                customer.name.toLowerCase().includes(searchTerm) ||
+                customer.phone.includes(searchTerm) ||
+                customer.email.toLowerCase().includes(searchTerm)
+            );
+            renderCustomers(filteredCustomers);
+        }
+
+        function editCustomer(id) {
+            const customer = customers.find(c => c.id === id);
+            if (!customer) return;
+            
+            document.getElementById('editCustomerId').value = customer.id;
+            document.getElementById('editCustomerName').value = customer.name;
+            document.getElementById('editCustomerPhone').value = customer.phone;
+            document.getElementById('editCustomerEmail').value = customer.email;
+            document.getElementById('editCustomerPoints').value = customer.points;
+            
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById('editModal').classList.add('flex');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            document.getElementById('editModal').classList.remove('flex');
+        }
+
+        async function deleteCustomer(id) {
+            if (!confirm('คุณต้องการลบลูกค้าคนนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้')) {
+                return;
+            }
+            
+            const customer = customers.find(c => c.id === id);
+            if (!customer) {
+                showNotification('ไม่พบข้อมูลลูกค้า', 'error');
+                return;
+            }
+            
+            // Delete from Firebase
+            const deleted = await deleteCustomerFromFirebase(id);
+            if (deleted) {
+                customers = customers.filter(c => c.id !== id);
+                transactions = transactions.filter(t => t.customerId !== id);
+                
+                updateStats();
+                renderCustomers();
+                renderTransactions();
+                populateCustomerSelect();
+                updateReports();
+                
+                showNotification(`ลบลูกค้า ${customer.name} เรียบร้อยแล้ว! 🗑️`, 'success');
+            } else {
+                showNotification('เกิดข้อผิดพลาดในการลบข้อมูล', 'error');
+            }
+        }
+
+        // Tab management for admin
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-blue-500', 'border-blue-500');
+                btn.classList.add('text-gray-600', 'border-transparent');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            
+            // Add active class to clicked button
+            event.target.classList.add('active', 'text-blue-500', 'border-blue-500');
+            event.target.classList.remove('text-gray-600', 'border-transparent');
+        }
+
+        // Search for another customer
+        function searchAnother() {
+            document.getElementById('customerInfo').style.display = 'none';
+            document.getElementById('notFound').style.display = 'none';
+            document.getElementById('phoneInput').value = '';
+            document.getElementById('phoneInput').focus();
+            
+            // Scroll back to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Refresh current customer data
+        async function refreshData() {
+            if (!currentCustomer) return;
+            
+            showNotification('กำลังรีเฟรชข้อมูล...', 'info');
+            
+            try {
+                // Reload data from Firebase
+                await loadDataFromFirebase();
+                
+                // Find updated customer data
+                const updatedCustomer = customers.find(c => c.id === currentCustomer.id);
+                if (updatedCustomer) {
+                    displayCustomerInfo(updatedCustomer);
+                    showNotification('รีเฟรชข้อมูลเรียบร้อยแล้ว! ✅', 'success');
+                } else {
+                    showNotification('ไม่พบข้อมูลลูกค้า', 'error');
+                }
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                showNotification('เกิดข้อผิดพลาดในการรีเฟรชข้อมูล', 'error');
+            }
+        }
+
+        // Notification system
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+            
+            notification.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg text-white font-semibold shadow-lg transform transition-all duration-300 ${colors[type]}`;
+            notification.textContent = message;
+            notification.style.transform = 'translateX(100%)';
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Render functions for admin system
+        function renderCustomers(customersToRender = customers) {
+            const tbody = document.getElementById('customerList');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            customersToRender.forEach(customer => {
+                const row = document.createElement('tr');
+                row.className = 'table-row transition-colors duration-200';
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-medium text-gray-900">${customer.name}</td>
+                    <td class="px-6 py-4 text-gray-600">${customer.phone}</td>
+                    <td class="px-6 py-4 text-gray-600">${customer.email || '-'}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="points-badge px-3 py-1 rounded-full text-sm font-bold">
+                            ${customer.points.toLocaleString()} แต้ม
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-center text-gray-600">${customer.joinDate.toLocaleDateString('th-TH')}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="editCustomer(${customer.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm font-medium mr-2 transition-colors duration-300">
+                            ✏️ แก้ไข
+                        </button>
+                        <button onclick="deleteCustomer(${customer.id})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-300">
+                            🗑️ ลบ
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderTransactions() {
+            const tbody = document.getElementById('transactionList');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            transactions.slice(0, 20).forEach(transaction => {
+                const row = document.createElement('tr');
+                row.className = 'table-row transition-colors duration-200';
+                
+                const typeIcon = transaction.type === 'earn' ? '➕' : '➖';
+                const typeText = transaction.type === 'earn' ? 'เพิ่มแต้ม' : 'ใช้แต้ม';
+                const typeColor = transaction.type === 'earn' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-gray-600">${transaction.date.toLocaleDateString('th-TH')}</td>
+                    <td class="px-6 py-4 font-medium text-gray-900">${transaction.customerName}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-3 py-1 rounded-full text-sm font-medium ${typeColor}">
+                            ${typeIcon} ${typeText}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-center font-bold text-lg">${transaction.points.toLocaleString()}</td>
+                    <td class="px-6 py-4 text-gray-600">${transaction.note || '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function populateCustomerSelect() {
+            const select = document.getElementById('transactionCustomer');
+            if (!select) return;
+            
+            select.innerHTML = '<option value="">เลือกลูกค้า</option>';
+            
+            customers.forEach(customer => {
+                const option = document.createElement('option');
+                option.value = customer.id;
+                option.textContent = `${customer.name} (${customer.points} แต้ม)`;
+                select.appendChild(option);
+            });
+        }
+
+        function updateStats() {
+            const totalCustomersEl = document.getElementById('totalCustomers');
+            const totalPointsEl = document.getElementById('totalPoints');
+            const avgPointsEl = document.getElementById('avgPoints');
+            
+            if (!totalCustomersEl) return;
+            
+            const totalCustomers = customers.length;
+            const totalPoints = customers.reduce((sum, customer) => sum + customer.points, 0);
+            const avgPoints = totalCustomers > 0 ? Math.round(totalPoints / totalCustomers) : 0;
+            
+            totalCustomersEl.textContent = totalCustomers.toLocaleString();
+            totalPointsEl.textContent = totalPoints.toLocaleString();
+            avgPointsEl.textContent = avgPoints.toLocaleString();
+        }
+
+        function updateReports() {
+            // Top customers
+            const topCustomers = [...customers]
+                .sort((a, b) => b.points - a.points)
+                .slice(0, 5);
+            
+            const topCustomersDiv = document.getElementById('topCustomers');
+            if (topCustomersDiv) {
+                topCustomersDiv.innerHTML = '';
+                
+                topCustomers.forEach((customer, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
+                    div.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-3">${index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅'}</span>
+                            <div>
+                                <div class="font-semibold">${customer.name}</div>
+                                <div class="text-sm text-gray-600">${customer.phone}</div>
+                            </div>
+                        </div>
+                        <div class="points-badge px-3 py-1 rounded-full text-sm font-bold">
+                            ${customer.points.toLocaleString()} แต้ม
+                        </div>
+                    `;
+                    topCustomersDiv.appendChild(div);
+                });
+            }
+            
+            // Recent activities
+            const recentActivities = transactions.slice(0, 5);
+            const recentActivitiesDiv = document.getElementById('recentActivities');
+            if (recentActivitiesDiv) {
+                recentActivitiesDiv.innerHTML = '';
+                
+                recentActivities.forEach(transaction => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
+                    
+                    const typeIcon = transaction.type === 'earn' ? '➕' : '➖';
+                    const typeColor = transaction.type === 'earn' ? 'text-green-600' : 'text-red-600';
+                    
+                    div.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="text-xl mr-3 ${typeColor}">${typeIcon}</span>
+                            <div>
+                                <div class="font-semibold">${transaction.customerName}</div>
+                                <div class="text-sm text-gray-600">${transaction.note || 'ไม่มีหมายเหตุ'}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold ${typeColor}">${transaction.points.toLocaleString()} แต้ม</div>
+                            <div class="text-xs text-gray-500">${transaction.date.toLocaleDateString('th-TH')}</div>
+                        </div>
+                    `;
+                    recentActivitiesDiv.appendChild(div);
+                });
+            }
+        }
+
+        // Export to Google Sheets
+        async function exportToGoogleSheets() {
+            try {
+                showNotification('กำลังส่งข้อมูลไป Excel...', 'info');
+                
+                if (customers.length === 0) {
+                    showNotification('ไม่มีข้อมูลลูกค้าให้ส่งออก', 'error');
+                    return;
+                }
+
+                // Prepare data for Google Sheets
+                const data = customers.map(customer => [
+                    customer.name,
+                    customer.phone,
+                    customer.email || '',
+                    customer.points,
+                    customer.joinDate.toLocaleDateString('th-TH')
+                ]);
+
+                // Add headers
+                const headers = ['ชื่อ-นามสกุล', 'เบอร์โทรศัพท์', 'อีเมล', 'แต้มสะสม', 'วันที่สมัคร'];
+                const allData = [headers, ...data];
+
+                // Google Apps Script Web App URL (you need to deploy this)
+                const scriptUrl = 'https://script.google.com/macros/s/AKfycbxYourScriptIdHere/exec';
+                
+                const response = await fetch(scriptUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'updateSheet',
+                        data: allData,
+                        sheetId: '1DuAE4MEsz6Z3x90uKPVZ1PaXS_qaRZ35vPZaFOpFVCI'
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        showNotification('ดาวน์โหลดไฟล์ เรียบร้อยแล้ว! 📊', 'success');
+                        // Open the Google Sheet
+                        window.open('https://docs.google.com/spreadsheets/d/1HeQJViJ1ENiJI_yEtnBxF2ZkgBML8-76b2d5GurYwRU/edit', '_blank');
+                    } else {
+                        throw new Error(result.error || 'Unknown error');
+                    }
+                } else {
+                    throw new Error('Network error');
+                }
+
+            } catch (error) {
+                console.error('Export error:', error);
+                showNotification('เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง', 'error');
+                
+                // Fallback: Download as CSV
+                exportToCSV();
+            }
+        }
+
+        // Fallback CSV export
+        function exportToCSV() {
+            const headers = ['ชื่อ-นามสกุล', 'เบอร์โทรศัพท์', 'อีเมล', 'แต้มสะสม', 'วันที่สมัคร'];
+            let csvContent = headers.join(',') + '\n';
+            
+            customers.forEach(customer => {
+                const row = [
+                    `"${customer.name}"`,
+                    `"${customer.phone}"`,
+                    `"${customer.email || ''}"`,
+                    customer.points,
+                    `"${customer.joinDate.toLocaleDateString('th-TH')}"`
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+            
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            const fileName = `ลูกค้า_${new Date().toISOString().split('T')[0]}.csv`;
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', fileName);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showNotification('ดาวน์โหลดไฟล์ CSV เรียบร้อยแล้ว! 📁', 'success');
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize data variables
+        let nextCustomerId = 6;
+        let nextTransactionId = 8;
+
+        // Excel Import Functions
+        let importData = [];
+        let validImportData = [];
+
+        async function handleExcelImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showNotification('กำลังอ่านไฟล์ Excel...', 'info');
+
+            try {
+                const data = await readExcelFile(file);
+                if (data && data.length > 0) {
+                    processImportData(data);
+                    showImportModal();
+                } else {
+                    showNotification('ไม่พบข้อมูลในไฟล์ Excel', 'error');
+                }
+            } catch (error) {
+                console.error('Excel import error:', error);
+                showNotification('เกิดข้อผิดพลาดในการอ่านไฟล์ Excel', 'error');
+            }
+
+            // Reset file input
+            event.target.value = '';
+        }
+
+        function readExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // Get first worksheet
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        
+                        // Convert to JSON (skip header row)
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                            header: 1,
+                            defval: '' 
+                        });
+                        
+                        // Remove empty rows and header
+                        const filteredData = jsonData.slice(1).filter(row => 
+                            row.some(cell => cell !== null && cell !== undefined && cell !== '')
+                        );
+                        
+                        resolve(filteredData);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                
+                reader.onerror = function(error) {
+                    reject(error);
+                };
+                
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function processImportData(rawData) {
+            importData = [];
+            validImportData = [];
+            
+            let validCount = 0;
+            let errorCount = 0;
+            let duplicateCount = 0;
+
+            rawData.forEach((row, index) => {
+                const rowData = {
+                    rowNumber: index + 2, // +2 because we skip header and arrays are 0-indexed
+                    name: (row[0] || '').toString().trim(),
+                    phone: (row[1] || '').toString().trim(),
+                    email: (row[2] || '').toString().trim(),
+                    points: parseInt(row[3]) || 0,
+                    status: 'valid',
+                    errors: []
+                };
+
+                // Validation
+                if (!rowData.name) {
+                    rowData.errors.push('ไม่มีชื่อ-นามสกุล');
+                }
+
+                if (!rowData.phone) {
+                    rowData.errors.push('ไม่มีเบอร์โทรศัพท์');
+                } else {
+                    // Check phone format (basic validation)
+                    const phoneRegex = /^[0-9\-\s\+\(\)]+$/;
+                    if (!phoneRegex.test(rowData.phone)) {
+                        rowData.errors.push('รูปแบบเบอร์โทรไม่ถูกต้อง');
+                    }
+                    
+                    // Check for duplicates in existing customers
+                    const cleanPhone = rowData.phone.replace(/\D/g, '');
+                    const existingCustomer = customers.find(c => 
+                        c.phone.replace(/\D/g, '') === cleanPhone
+                    );
+                    
+                    if (existingCustomer) {
+                        rowData.errors.push(`เบอร์นี้มีอยู่แล้ว (${existingCustomer.name})`);
+                        rowData.status = 'duplicate';
+                        duplicateCount++;
+                    }
+                    
+                    // Check for duplicates within import data
+                    const duplicateInImport = importData.find(item => 
+                        item.phone.replace(/\D/g, '') === cleanPhone
+                    );
+                    
+                    if (duplicateInImport) {
+                        rowData.errors.push('เบอร์ซ้ำในไฟล์ Excel');
+                        rowData.status = 'duplicate';
+                        if (rowData.status !== 'duplicate') duplicateCount++;
+                    }
+                }
+
+                // Email validation (if provided)
+                if (rowData.email) {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(rowData.email)) {
+                        rowData.errors.push('รูปแบบอีเมลไม่ถูกต้อง');
+                    }
+                }
+
+                // Points validation
+                if (rowData.points < 0) {
+                    rowData.errors.push('แต้มต้องไม่ติดลบ');
+                }
+
+                // Set final status
+                if (rowData.errors.length > 0 && rowData.status !== 'duplicate') {
+                    rowData.status = 'error';
+                    errorCount++;
+                } else if (rowData.status === 'valid') {
+                    validCount++;
+                    validImportData.push(rowData);
+                }
+
+                importData.push(rowData);
+            });
+
+            // Update stats
+            document.getElementById('validCount').textContent = validCount;
+            document.getElementById('errorCount').textContent = errorCount;
+            document.getElementById('duplicateCount').textContent = duplicateCount;
+
+            // Enable/disable import button
+            const importBtn = document.getElementById('confirmImportBtn');
+            if (validCount > 0) {
+                importBtn.disabled = false;
+                importBtn.style.opacity = '1';
+                document.getElementById('confirmImportText').textContent = `✅ Import ${validCount} รายการ`;
+            } else {
+                importBtn.disabled = true;
+                importBtn.style.opacity = '0.5';
+                document.getElementById('confirmImportText').textContent = '❌ ไม่มีข้อมูลที่ถูกต้อง';
+            }
+        }
+
+        function showImportModal() {
+            // Populate preview table
+            const tbody = document.getElementById('importPreviewTable');
+            tbody.innerHTML = '';
+
+            importData.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                let statusIcon = '';
+                let statusClass = '';
+                let statusText = '';
+                
+                switch (row.status) {
+                    case 'valid':
+                        statusIcon = '✅';
+                        statusClass = 'text-green-600 bg-green-100';
+                        statusText = 'ถูกต้อง';
+                        break;
+                    case 'error':
+                        statusIcon = '❌';
+                        statusClass = 'text-red-600 bg-red-100';
+                        statusText = 'ผิดพลาด';
+                        break;
+                    case 'duplicate':
+                        statusIcon = '⚠️';
+                        statusClass = 'text-yellow-600 bg-yellow-100';
+                        statusText = 'ซ้ำ';
+                        break;
+                }
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">
+                            ${statusIcon} ${statusText}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 font-medium">${row.name || '-'}</td>
+                    <td class="px-4 py-3">${row.phone || '-'}</td>
+                    <td class="px-4 py-3">${row.email || '-'}</td>
+                    <td class="px-4 py-3 text-center">${row.points}</td>
+                    <td class="px-4 py-3 text-sm">
+                        ${row.errors.length > 0 ? 
+                            `<div class="text-red-600">${row.errors.join(', ')}</div>` : 
+                            '<span class="text-green-600">พร้อม Import</span>'
+                        }
+                    </td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+
+            // Show modal
+            document.getElementById('importModal').classList.remove('hidden');
+            document.getElementById('importModal').classList.add('flex');
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').classList.add('hidden');
+            document.getElementById('importModal').classList.remove('flex');
+            importData = [];
+            validImportData = [];
+        }
+
+        async function confirmImport() {
+            if (validImportData.length === 0) {
+                showNotification('ไม่มีข้อมูลที่ถูกต้องให้ Import', 'error');
+                return;
+            }
+
+            // Show loading
+            const btn = document.getElementById('confirmImportBtn');
+            const btnText = document.getElementById('confirmImportText');
+            const btnLoading = document.getElementById('confirmImportLoading');
+            
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'block';
+
+            try {
+                let successCount = 0;
+                let failCount = 0;
+
+                for (const rowData of validImportData) {
+                    const newCustomer = {
+                        id: nextCustomerId++,
+                        name: rowData.name,
+                        phone: rowData.phone,
+                        email: rowData.email || '',
+                        points: rowData.points,
+                        joinDate: new Date()
+                    };
+
+                    // Save to Firebase
+                    const saved = await saveCustomerToFirebase(newCustomer);
+                    if (saved) {
+                        customers.push(newCustomer);
+                        successCount++;
+                    } else {
+                        nextCustomerId--; // Rollback ID
+                        failCount++;
+                    }
+
+                    // Small delay to prevent overwhelming Firebase
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                // Update UI
+                updateStats();
+                renderCustomers();
+                populateCustomerSelect();
+                updateReports();
+
+                // Close modal
+                closeImportModal();
+
+                // Show result
+                if (failCount === 0) {
+                    showNotification(`Import สำเร็จ! เพิ่มลูกค้า ${successCount} คน 🎉`, 'success');
+                } else {
+                    showNotification(`Import เสร็จสิ้น: สำเร็จ ${successCount} คน, ล้มเหลว ${failCount} คน`, 'info');
+                }
+
+            } catch (error) {
+                console.error('Import error:', error);
+                showNotification('เกิดข้อผิดพลาดในการ Import ข้อมูล', 'error');
+            } finally {
+                // Reset button
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            }
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(e) {
+            const editModal = document.getElementById('editModal');
+            const importModal = document.getElementById('importModal');
+            
+            if (editModal && e.target === editModal) {
+                closeEditModal();
+            }
+            
+            if (importModal && e.target === importModal) {
+                closeImportModal();
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'971e5bc804247328',t:'MTc1NTY1NTg3MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
